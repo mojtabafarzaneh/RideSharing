@@ -17,7 +17,7 @@ func NewInmemRepository() domain.TripRepository {
 	}
 }
 
-func (i *inmemRepository) SaveTrip(ctx context.Context, trip *domain.TripModel) (domain.TripModel, error) {
+func (i *inmemRepository) SaveTrip(ctx context.Context, trip *domain.TripModel) (*domain.TripModel, error) {
 	i.trips[trip.ID.Hex()] = trip
-	return *trip, nil
+	return trip, nil
 }

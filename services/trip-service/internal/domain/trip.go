@@ -1,6 +1,9 @@
 package domain
 
 import (
+	"context"
+	"ride-sharing/shared/types"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -9,4 +12,12 @@ type TripModel struct {
 	UserID   string             `bson:"user_id,omitempty"`
 	Status   string             `bson:"status,omitempty"`
 	RideFare *RideFareModel     `bson:"ride_fare,omitempty"`
+}
+
+type TripService interface {
+	CreateTrip(ctx context.Context, fare *RideFareModel) (*TripModel, error)
+	GetRoute(ctx context.Context, pickup, destination *types.Coordinate) (*types.OsrmApiResponse, error)
+}
+type TripRepository interface {
+	SaveTrip(ctx context.Context, trip *TripModel) (*TripModel, error)
 }
