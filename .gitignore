@@ -62,3 +62,5 @@ build/
 
 # Secrets
 secrets.yaml
+
+.zip
