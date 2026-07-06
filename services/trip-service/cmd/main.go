@@ -1,70 +1,59 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"log"
-	"net/http"
+	"net"
+	"os"
+	"os/signal"
 	"ride-sharing/services/trip-service/internal/domain"
+	"ride-sharing/services/trip-service/internal/infrastructure/grpc"
 	"ride-sharing/services/trip-service/internal/infrastructure/repository"
 	"ride-sharing/services/trip-service/internal/service"
 	"ride-sharing/shared/types"
+	"syscall"
+
+	grpcserver "google.golang.org/grpc"
 )
+
+var GrpcAddr = ":9083"
 
 func main() {
 
 	inmemRepo := repository.NewInmemRepository()
 	svc := service.NewService(inmemRepo)
+	ctx, cancel := context.WithCancel(context.Background())
 
-	httpHanlder := httpHandler{
-		svc: svc,
-	}
-	mux := http.NewServeMux()
+	defer cancel()
+	lis, err := net.Listen("tcp", GrpcAddr)
 
-	mux.HandleFunc("POST /preview", httpHanlder.handleTripPreview)
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+		<-sigCh
+		cancel()
 
-	server := &http.Server{
-		Addr:    ":8083",
-		Handler: mux,
-	}
-
-	if err := server.ListenAndServe(); err != nil {
-		log.Printf("http server err this is a test: %v", err)
-	}
-}
-
-func (s *httpHandler) handleTripPreview(w http.ResponseWriter, r *http.Request) {
-
-	var reqBody previewTripRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-		http.Error(w, "failed to parse JSON data", http.StatusBadRequest)
-		return
-	}
-
-	defer r.Body.Close()
-
-	if reqBody.UserID == "" {
-		http.Error(w, "userID is required", http.StatusBadRequest)
-		return
-	}
-
-	ctx := r.Context()
-
-	trip, err := s.svc.GetRoute(ctx, &reqBody.Pickup, &reqBody.Destination)
+	}()
 	if err != nil {
-		http.Error(w, "failed to create trip", http.StatusInternalServerError)
-		return
+		log.Fatalf("failed to listen: %v", err)
 	}
+	grpcServer := grpcserver.NewServer()
 
-	writeJson(w, http.StatusOK, trip)
+	grpc.NewGRPCHandler(grpcServer, svc)
 
-}
+	log.Printf("gRPC server listening on %s", GrpcAddr)
 
-func writeJson(w http.ResponseWriter, status int, data any) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Printf("failed to sreve: %v", err)
+			cancel()
+		}
+	}()
 
-	return json.NewEncoder(w).Encode(data)
+	<-ctx.Done()
+	log.Printf("shuting down the server")
+
+	grpcServer.GracefulStop()
 }
 
 type previewTripRequest struct {

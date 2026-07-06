@@ -7,7 +7,8 @@ import (
 	"io"
 	"net/http"
 	"ride-sharing/services/trip-service/internal/domain"
-	"ride-sharing/shared/types"
+	"ride-sharing/services/trip-service/pkg/types"
+	sharedTypes "ride-sharing/shared/types"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -34,7 +35,7 @@ func (s *service) CreateTrip(ctx context.Context, fare *domain.RideFareModel) (*
 	return s.repo.SaveTrip(ctx, t)
 }
 
-func (s *service) GetRoute(ctx context.Context, pickup, destination *types.Coordinate) (*types.OsrmApiResponse, error) {
+func (s *service) GetRoute(ctx context.Context, pickup, destination *sharedTypes.Coordinate) (*types.OsrmApiResponse, error) {
 
 	url := fmt.Sprintf(
 		"http://router.project-osrm.org/route/v1/driving/%f,%f;%f,%f?overview=full&geometries=geojson",
