@@ -38,24 +38,39 @@ func (h *gRPCHandler) PreviewTrip(ctx context.Context, req *pb.PreviewTripReques
 		Longitude: destination.Longitude,
 	}
 
-	//userID := req.GetUserID()
+	userID := req.GetUserID()
 
-	// CHANGE THE LAST ARG TO "FALSE" if the OSRM API is not working right now
 	route, err := h.service.GetRoute(ctx, pickupCoord, destinationCoord)
 	if err != nil {
 		log.Println(err)
 		return nil, status.Errorf(codes.Internal, "failed to get route: %v", err)
 	}
 
-	// estimatedFares := h.service.EstimatePackagesPriceWithRoute(route)
+	estimatedFares := h.service.EstimatePackagesPriceWithRoute(route)
 
-	// fares, err := h.service.GenerateTripFares(ctx, estimatedFares, userID, route)
-	// if err != nil {
-	// 	return nil, status.Errorf(codes.Internal, "failed to generate the ride fares: %v", err)
-	// }
+	fares, err := h.service.GenerateTripFares(ctx, estimatedFares, userID, route)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate the ride fares: %v", err)
+	}
 
 	return &pb.PreviewTripResponse{
-		Route: route.ToProto(),
-		//		RideFares: domain.ToRideFaresProto(fares),
+		Route:     route.ToProto(),
+		RideFares: domain.ToRideFaresProto(fares),
+	}, nil
+}
+
+func (h *gRPCHandler) CreateTrip(ctx context.Context, req *pb.CreateTripRequest) (res *pb.CreateTripResponse, err error) {
+	fare, err := h.service.GetAndValidateFare(ctx, req.RideFareID, req.UserID)
+	if err != nil {
+		log.Println(err)
+		return nil, status.Errorf(codes.Internal, "failed to return the fare: %v", err)
+	}
+	trip, err := h.service.CreateTrip(ctx, fare)
+	if err != nil {
+		log.Println(err)
+		return nil, status.Errorf(codes.Internal, "failed to create trip %v", err)
+	}
+	return &pb.CreateTripResponse{
+		TripID: trip.ID.Hex(),
 	}, nil
 }

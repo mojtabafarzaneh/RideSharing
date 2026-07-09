@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"log"
 	"net/http"
 	"ride-sharing/shared/contracts"
@@ -36,7 +37,7 @@ func handleRiderWebSoket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		log.Printf("Recieved message %v", message)
+		log.Printf("Recieved message %v", base64.StdEncoding.EncodeToString(message))
 	}
 
 }
