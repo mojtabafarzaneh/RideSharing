@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	amqp "github.com/rabbitmq/amqp091-go"
 	grpcserver "google.golang.org/grpc"
 )
 
@@ -19,12 +20,21 @@ func main() {
 
 	defer cancel()
 	lis, err := net.Listen("tcp", GrpcAddr)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/")
+	if err != nil {
+		log.Fatalf("failed to connect to rabbitmq")
+		return
+	}
+	defer conn.Close()
 
 	service := newService()
 	grpcServer := grpcserver.NewServer()
 
 	NewGrpcHandler(grpcServer, service)
-
 	log.Printf("gRPC server listening on %s", GrpcAddr)
 
 	go func() {
@@ -34,9 +44,6 @@ func main() {
 		cancel()
 
 	}()
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
 
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
@@ -50,13 +57,3 @@ func main() {
 
 	grpcServer.GracefulStop()
 }
-
-// type previewTripRequest struct {
-// 	UserID      string           `json:"userID"`
-// 	Pickup      types.Coordinate `json:"pickup"`
-// 	Destination types.Coordinate `json:"destination"`
-// }
-
-// type httpHandler struct {
-// 	svc domain.TripService
-// }

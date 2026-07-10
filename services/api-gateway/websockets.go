@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/base64"
+	"fmt"
 	"log"
 	"net/http"
+	"ride-sharing/services/api-gateway/grpc_client"
 	"ride-sharing/shared/contracts"
-	"ride-sharing/shared/util"
+	"ride-sharing/shared/proto/driver"
 
 	"github.com/gorilla/websocket"
 )
@@ -56,30 +58,43 @@ func handleDriverWebSoket(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "packageSlug is required", http.StatusBadRequest)
 		return
 	}
-
 	userID := r.URL.Query().Get("userID")
 	if userID == "" {
 		http.Error(w, "userID is required", http.StatusBadRequest)
 		return
 	}
 
-	type Driver struct {
-		Id             string `json:"id"`
-		Name           string `json:"name"`
-		ProfilePicture string `json:"profilePicture"`
-		PackageSlug    string `json:"packageSlug"`
-		CarPlate       string `json:"carPlate"`
+	driverService, err := grpc_client.NewDriverServiceClient()
+	if err != nil {
+		log.Fatal(err)
 	}
 
+	ctx := r.Context()
+
+	data, err := driverService.Client.RegisterDriver(ctx, &driver.RegisterDriverRequest{
+		PackageSlug: packageSlug,
+		DriverID:    userID,
+	})
+
+	fmt.Println("driver when in websocket we get the data", data)
+
+	if err != nil {
+		log.Println(err)
+	}
+
+	defer driverService.Close()
+
+	defer func() {
+		driverService.Client.UnregisterDriver(ctx, &driver.RegisterDriverRequest{
+			DriverID: userID,
+		})
+		driverService.Close()
+		log.Println("Driver Unregistered: ", userID)
+	}()
+	fmt.Println("driver before the message been sent ", data)
 	msg := contracts.WSMessage{
 		Type: "driver.cmd.register",
-		Data: Driver{
-			Id:             userID,
-			Name:           "Mojtaba",
-			ProfilePicture: util.GetRandomAvatar(1),
-			PackageSlug:    packageSlug,
-			CarPlate:       "ABC-123",
-		},
+		Data: data.Driver,
 	}
 	if err := conn.WriteJSON(msg); err != nil {
 		log.Printf("Error sending message: %v", err)

@@ -13,6 +13,7 @@ import (
 	"ride-sharing/shared/types"
 	"syscall"
 
+	amqp "github.com/rabbitmq/amqp091-go"
 	grpcserver "google.golang.org/grpc"
 )
 
@@ -26,6 +27,21 @@ func main() {
 
 	defer cancel()
 	lis, err := net.Listen("tcp", GrpcAddr)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/")
+	if err != nil {
+		log.Fatalf("failed to connect to rabbitmq")
+		return
+	}
+	defer conn.Close()
+	grpcServer := grpcserver.NewServer()
+
+	grpc.NewGRPCHandler(grpcServer, svc)
+
+	log.Printf("gRPC server listening on %s", GrpcAddr)
 
 	go func() {
 		sigCh := make(chan os.Signal, 1)
@@ -34,14 +50,6 @@ func main() {
 		cancel()
 
 	}()
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	grpcServer := grpcserver.NewServer()
-
-	grpc.NewGRPCHandler(grpcServer, svc)
-
-	log.Printf("gRPC server listening on %s", GrpcAddr)
 
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {

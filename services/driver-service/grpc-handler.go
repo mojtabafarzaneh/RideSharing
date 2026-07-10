@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	pb "ride-sharing/shared/proto/driver"
 
 	"google.golang.org/grpc"
@@ -26,8 +27,28 @@ func NewGrpcHandler(s *grpc.Server, service *Service) *grpcHandler {
 }
 
 func (h *grpcHandler) RegisterDriver(ctx context.Context, req *pb.RegisterDriverRequest) (*pb.RegisterDriverResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method RegisterDriver not implemented")
+	driverId := req.GetDriverID()
+	packageSlug := req.GetPackageSlug()
+
+	register, err := h.Service.RegisterDriver(driverId, packageSlug)
+	if err != nil {
+		log.Println(err)
+		return nil, status.Errorf(codes.Internal, "failed to register driver: %v", err)
+
+	}
+
+	return &pb.RegisterDriverResponse{
+		Driver: register,
+	}, nil
 }
 func (h *grpcHandler) UnregisterDriver(ctx context.Context, req *pb.RegisterDriverRequest) (*pb.RegisterDriverResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method UnregisterDriver not implemented")
+	driverId := req.GetDriverID()
+
+	h.Service.UnregisterDriver(driverId)
+
+	return &pb.RegisterDriverResponse{
+		Driver: &pb.Driver{
+			Id: driverId,
+		},
+	}, nil
 }
