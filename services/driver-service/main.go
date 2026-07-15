@@ -17,6 +17,7 @@ var GrpcAddr = ":9092"
 func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
+	service := newService()
 
 	defer cancel()
 	lis, err := net.Listen("tcp", GrpcAddr)
@@ -31,7 +32,7 @@ func main() {
 	defer rabbitmq.Close()
 	log.Println("starting RabbitMQ Connection")
 
-	consumer := NewTripConsumer(rabbitmq)
+	consumer := NewTripConsumer(rabbitmq, service)
 	go func() {
 		if err := consumer.Listen(); err != nil {
 			log.Fatalf("couldn't consume rabbitmq %v", err)
@@ -39,7 +40,6 @@ func main() {
 
 	}()
 
-	service := newService()
 	grpcServer := grpcserver.NewServer()
 
 	NewGrpcHandler(grpcServer, service)

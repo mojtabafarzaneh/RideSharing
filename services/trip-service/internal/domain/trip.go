@@ -17,6 +17,17 @@ type TripModel struct {
 	Driver   *pb.TripDriver
 }
 
+func (t *TripModel) ToPorto() *pb.Trip {
+	return &pb.Trip{
+		Id:           t.ID.Hex(),
+		UserID:       t.UserID,
+		SelectedFare: t.RideFare.ToProto(),
+		Status:       t.Status,
+		Driver:       t.Driver,
+		Route:        t.RideFare.Route.ToProto(),
+	}
+}
+
 type TripService interface {
 	CreateTrip(ctx context.Context, fare *RideFareModel) (*TripModel, error)
 	GetRoute(ctx context.Context, pickup, destination *types.Coordinate) (*tripType.OsrmApiResponse, error)

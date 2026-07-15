@@ -2,6 +2,7 @@ package messaging
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"ride-sharing/shared/contracts"
@@ -52,7 +53,11 @@ func (r *RabbitMQ) Close() {
 	}
 }
 
-func (r *RabbitMQ) PublishMessage(ctx context.Context, routingKey string, message string) error {
+func (r *RabbitMQ) PublishMessage(ctx context.Context, routingKey string, message contracts.AmqpMessage) error {
+	marshaledMessage, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
 	return r.Channel.PublishWithContext(ctx,
 		TripExchange, //exchange
 		routingKey,   //routing key
@@ -60,7 +65,7 @@ func (r *RabbitMQ) PublishMessage(ctx context.Context, routingKey string, messag
 		false,        //immediate
 		amqp.Publishing{
 			ContentType:  "text/plain",
-			Body:         []byte(message),
+			Body:         marshaledMessage,
 			DeliveryMode: amqp.Persistent,
 		})
 
