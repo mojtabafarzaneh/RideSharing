@@ -40,7 +40,7 @@ func (c *TripCosumer) Listen() error {
 			return c.handleFindAndNotifyDrivers(ctx, payload)
 		}
 
-		log.Printf("driver received message %+v", payload)
+		log.Printf("driver received message %+v", &payload)
 		return nil
 	})
 }

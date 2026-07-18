@@ -6,6 +6,7 @@ import (
 
 const (
 	FindAvailableDriversQueue = "find_available_drivers"
+	DriverCMDTripRequestQueue = "driver_cmd_trip_request"
 )
 
 type TripEventData struct {

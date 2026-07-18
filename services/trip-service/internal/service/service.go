@@ -28,7 +28,7 @@ func (s *service) CreateTrip(ctx context.Context, fare *domain.RideFareModel) (*
 
 	t := &domain.TripModel{
 		ID:       primitive.NewObjectID(),
-		UserID:   "nill",
+		UserID:   fare.UserID,
 		Status:   "pending",
 		RideFare: fare,
 		Driver:   &trip.TripDriver{},

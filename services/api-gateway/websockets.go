@@ -2,24 +2,22 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"ride-sharing/services/api-gateway/grpc_client"
 	"ride-sharing/shared/contracts"
+	"ride-sharing/shared/messaging"
 	"ride-sharing/shared/proto/driver"
-
-	"github.com/gorilla/websocket"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
+var (
+	connManager = messaging.NewConnectionManager()
+)
 
-func handleRiderWebSoket(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+func handleRiderWebSoket(w http.ResponseWriter, r *http.Request, rb *messaging.RabbitMQ) {
+	conn, err := connManager.Upgrade(w, r)
 	if err != nil {
 		http.Error(w, "failed to upgrade to websocket", http.StatusInternalServerError)
 		return
@@ -31,6 +29,8 @@ func handleRiderWebSoket(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "userID is required", http.StatusBadRequest)
 		return
 	}
+	connManager.Add(userID, conn)
+	defer connManager.Remove(userID)
 
 	for {
 		_, message, err := conn.ReadMessage()
@@ -44,8 +44,8 @@ func handleRiderWebSoket(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func handleDriverWebSoket(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+func handleDriverWebSoket(w http.ResponseWriter, r *http.Request, rb *messaging.RabbitMQ) {
+	conn, err := connManager.Upgrade(w, r)
 	if err != nil {
 		http.Error(w, "failed to upgrade to websocket", http.StatusInternalServerError)
 		return
@@ -63,6 +63,8 @@ func handleDriverWebSoket(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "userID is required", http.StatusBadRequest)
 		return
 	}
+	connManager.Add(userID, conn)
+	defer connManager.Remove(userID)
 
 	driverService, err := grpc_client.NewDriverServiceClient()
 	if err != nil {
@@ -85,6 +87,8 @@ func handleDriverWebSoket(w http.ResponseWriter, r *http.Request) {
 	defer driverService.Close()
 
 	defer func() {
+
+		connManager.Remove(userID)
 		driverService.Client.UnregisterDriver(ctx, &driver.RegisterDriverRequest{
 			DriverID: userID,
 		})
@@ -101,6 +105,17 @@ func handleDriverWebSoket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	queues := []string{
+		messaging.DriverCMDTripRequestQueue,
+	}
+
+	for _, q := range queues {
+		consumer := messaging.NewQueueConsumer(rb, connManager, q)
+		if err := consumer.Start(); err != nil {
+			log.Printf("failed to start consuemr for queue: %s, err: %v", q, err)
+		}
+	}
+
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
@@ -108,7 +123,14 @@ func handleDriverWebSoket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		log.Printf("Recieved message %v", message)
+		var wsMsg contracts.WSMessage
+		if err := json.Unmarshal(message, &wsMsg); err != nil {
+			log.Println("Failed to unmarshal incoming message:", err)
+			continue
+
+		}
+
+		log.Printf("Recieved message %v", wsMsg)
 	}
 
 }

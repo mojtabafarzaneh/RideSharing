@@ -101,7 +101,11 @@ func (r *RabbitMQ) ConsumeMessages(queueName string, handler MessageHandler) err
 
 	go func() {
 		for msg := range msgs {
-			log.Printf("Recived a message %s", msg.Body)
+			var payload contracts.AmqpMessage
+			if err := json.Unmarshal(msg.Body, &payload); err != nil {
+				log.Printf("couldn't unmarshal message: %v", err)
+			}
+			log.Printf("Recived a message %s", payload)
 
 			if err := handler(ctx, msg); err != nil {
 				log.Printf("ERROR: Failed to handle message: %v. Message body: %s", err, msg.Body)
@@ -143,6 +147,16 @@ func (r *RabbitMQ) setupExchangesAndQueues() error {
 		[]string{
 			contracts.TripEventCreated,
 			contracts.TripEventDriverNotInterested,
+		},
+		TripExchange,
+	); err != nil {
+		return err
+
+	}
+	if err := r.declareAndBindQueue(
+		DriverCMDTripRequestQueue,
+		[]string{
+			contracts.DriverCmdTripRequest,
 		},
 		TripExchange,
 	); err != nil {
