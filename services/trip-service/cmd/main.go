@@ -41,7 +41,8 @@ func main() {
 	log.Println("starting RabbitMQ Connection")
 
 	publisher := events.NewTripEventPublisher(rabbitmq)
-
+	driverCosumer := events.NewDriverConsumer(rabbitmq, svc)
+	go driverCosumer.Listen()
 	grpcServer := grpcserver.NewServer()
 
 	grpc.NewGRPCHandler(grpcServer, svc, publisher)

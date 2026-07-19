@@ -27,12 +27,16 @@ func main() {
 	defer rabbitmq.Close()
 	log.Println("starting RabbitMQ Connection")
 
+	// if err := startWebSocketConsumers(rabbitmq); err != nil {
+	// 	log.Fatal(err)
+	// }
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /trip/preview", enableCors(handleTripPreview))
 	mux.HandleFunc("POST /trip/start", enableCors(handleTripStart))
-	mux.HandleFunc("/ws/drivers", func(w http.ResponseWriter, r *http.Request) { handleDriverWebSoket(w, r, rabbitmq) })
-	mux.HandleFunc("/ws/riders", func(w http.ResponseWriter, r *http.Request) { handleRiderWebSoket(w, r, rabbitmq) })
+	mux.HandleFunc("/ws/drivers", func(w http.ResponseWriter, r *http.Request) { handleDriversWebSocket(w, r, rabbitmq) })
+	mux.HandleFunc("/ws/riders", func(w http.ResponseWriter, r *http.Request) { handleRidersWebSocket(w, r, rabbitmq) })
 	server := &http.Server{
 		Addr:    httpAddr,
 		Handler: mux,
